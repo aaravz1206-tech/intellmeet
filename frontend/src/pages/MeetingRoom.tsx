@@ -9,6 +9,8 @@ import {
   PenTool
 } from 'lucide-react';
 import Whiteboard from '../components/Whiteboard';
+import VideoGrid from '../components/VideoGrid';
+import useMeetingStore from '../store/useMeetingStore';
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
 
@@ -26,22 +28,26 @@ export default function MeetingRoom() {
   
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<{ id: string; stream: MediaStream }[]>([]);
-  
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOff, setIsVideoOff] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
   const screenStreamRef = useRef<MediaStream | null>(null);
-
-  const [activeView, setActiveView] = useState<'video' | 'whiteboard'>('video');
-
-  const [sidebarTab, setSidebarTab] = useState<'chat' | 'participants'>('chat');
-  const [messages, setMessages] = useState<{ sender: string; text: string }[]>([]);
   const [chatInput, setChatInput] = useState('');
-  
-  const [aiEnabled, setAiEnabled] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<'chat' | 'participants'>('chat');
+
+  // Global State (Zustand)
+  const {
+    isMuted, toggleMute,
+    isVideoOff, toggleVideo,
+    isScreenSharing, setScreenSharing,
+    isSidebarOpen, toggleSidebar,
+    activeView, setActiveView,
+    aiEnabled, toggleAi,
+    messages, addMessage,
+    resetState
+  } = useMeetingStore();
 
   useEffect(() => {
+    // Reset global state on mount
+    resetState();
+
     socketRef.current = io(SERVER_URL);
     const userId = Math.random().toString(36).substring(7);
 
@@ -63,13 +69,11 @@ export default function MeetingRoom() {
     function joinRoom(mediaStream: MediaStream) {
       socketRef.current?.emit('join-room', { meetingId, userId });
 
-      // When a new user connects
       socketRef.current?.on('user-connected', (socketId: string) => {
         const peer = createPeer(socketId, mediaStream);
         peersRef.current[socketId] = peer;
       });
 
-      // Handle incoming signals (offers, answers, ICE candidates)
       socketRef.current?.on('signal', async (data: { from: string; signal: any }) => {
         const { from, signal } = data;
         let peer = peersRef.current[from];
@@ -99,9 +103,8 @@ export default function MeetingRoom() {
         setRemoteStreams((prev) => prev.filter((s) => s.id !== socketId));
       });
 
-      // Custom chat events
       socketRef.current?.on('chat-message', (data: { sender: string; text: string }) => {
-        setMessages((prev) => [...prev, data]);
+        addMessage(data);
       });
     }
 
@@ -168,17 +171,17 @@ export default function MeetingRoom() {
     return peer;
   };
 
-  const toggleMute = () => {
+  const handleToggleMute = () => {
     if (stream && stream.getAudioTracks().length > 0) {
       stream.getAudioTracks()[0].enabled = !stream.getAudioTracks()[0].enabled;
-      setIsMuted(!stream.getAudioTracks()[0].enabled);
+      toggleMute();
     }
   };
 
-  const toggleVideo = () => {
+  const handleToggleVideo = () => {
     if (stream && stream.getVideoTracks().length > 0) {
       stream.getVideoTracks()[0].enabled = !stream.getVideoTracks()[0].enabled;
-      setIsVideoOff(!stream.getVideoTracks()[0].enabled);
+      toggleVideo();
     }
   };
 
@@ -198,10 +201,10 @@ export default function MeetingRoom() {
 
     screenStreamRef.current?.getTracks().forEach(track => track.stop());
     screenStreamRef.current = null;
-    setIsScreenSharing(false);
+    setScreenSharing(false);
   };
 
-  const toggleScreenShare = async () => {
+  const handleToggleScreenShare = async () => {
     if (isScreenSharing) {
       stopScreenShare();
       return;
@@ -225,8 +228,8 @@ export default function MeetingRoom() {
         userVideoRef.current.srcObject = screenStream;
       }
       
-      setIsScreenSharing(true);
-      setActiveView('video'); // Focus back on video if sharing screen
+      setScreenSharing(true);
+      setActiveView('video'); 
     } catch (error) {
       console.error("Error sharing screen:", error);
     }
@@ -235,14 +238,15 @@ export default function MeetingRoom() {
   const endCall = () => {
     stream?.getTracks().forEach((track) => track.stop());
     screenStreamRef.current?.getTracks().forEach(track => track.stop());
+    resetState();
     navigate('/dashboard');
   };
 
-  const sendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (chatInput.trim()) {
       const msg = { sender: 'You', text: chatInput };
-      setMessages((prev) => [...prev, msg]);
+      addMessage(msg);
       socketRef.current?.emit('chat-message', { ...msg, meetingId });
       setChatInput('');
     }
@@ -285,9 +289,8 @@ export default function MeetingRoom() {
           </div>
         </div>
 
-        {/* Content Area (Video Grid or Whiteboard) */}
+        {/* Content Area */}
         <div className="flex-1 p-6 flex flex-col justify-center items-center relative z-0 mt-20 mb-28 w-full h-full">
-          
           {activeView === 'whiteboard' ? (
             <div className="w-full h-full flex flex-col relative gap-4">
               {/* Floating PIP Video Strip */}
@@ -312,7 +315,6 @@ export default function MeetingRoom() {
                   ))}
               </div>
               
-              {/* Whiteboard */}
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -322,50 +324,12 @@ export default function MeetingRoom() {
               </motion.div>
             </div>
           ) : (
-            /* Video Grid */
-            <div className="w-full h-full flex flex-col md:flex-row gap-6 justify-center items-center">
-              {/* Local User */}
-              <div className={`relative w-full max-w-4xl aspect-video bg-slate-900 rounded-[2rem] overflow-hidden border transition-all ${isScreenSharing ? 'border-blue-500 shadow-[0_0_40px_rgba(37,99,235,0.3)]' : 'border-white/10 shadow-2xl'}`}>
-                <video 
-                  ref={userVideoRef} 
-                  autoPlay 
-                  muted 
-                  playsInline
-                  className={`w-full h-full object-cover ${isVideoOff && !isScreenSharing ? 'hidden' : ''}`} 
-                  style={{ transform: isScreenSharing ? 'none' : 'scaleX(-1)' }}
-                />
-                {isVideoOff && !isScreenSharing && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-slate-800">
-                    <div className="w-24 h-24 bg-gradient-to-tr from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-4xl text-white font-bold shadow-lg">
-                      Y
-                    </div>
-                  </div>
-                )}
-                <div className="absolute bottom-6 left-6 bg-slate-950/60 backdrop-blur-xl px-4 py-2 rounded-xl text-white text-sm font-medium border border-white/10 flex items-center gap-2 shadow-lg">
-                  {isScreenSharing && <MonitorUp className="w-4 h-4 text-blue-400" />}
-                  {isScreenSharing ? 'You (Presenting)' : 'You'}
-                </div>
-              </div>
-
-              {/* Remote Users */}
-              {remoteStreams.length > 0 && (
-                <div className="flex flex-col gap-4 w-full md:w-80">
-                  {remoteStreams.map((remote, idx) => (
-                    <div key={remote.id} className="relative w-full aspect-video bg-slate-900 rounded-[1.5rem] overflow-hidden border border-white/10 shadow-xl">
-                      <video 
-                        autoPlay 
-                        playsInline
-                        ref={(vid) => { if (vid) vid.srcObject = remote.stream }}
-                        className="w-full h-full object-cover" 
-                      />
-                      <div className="absolute bottom-4 left-4 bg-slate-950/60 backdrop-blur-md px-3 py-1.5 rounded-lg text-white text-xs font-medium border border-white/10">
-                        Participant {idx + 1}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <VideoGrid 
+              userVideoRef={userVideoRef} 
+              remoteStreams={remoteStreams} 
+              isScreenSharing={isScreenSharing} 
+              isVideoOff={isVideoOff} 
+            />
           )}
         </div>
 
@@ -377,14 +341,14 @@ export default function MeetingRoom() {
             className="flex items-center gap-3 bg-slate-900/80 backdrop-blur-2xl border border-white/10 p-3 rounded-3xl shadow-[0_20px_40px_rgba(0,0,0,0.5)]"
           >
             <button 
-              onClick={toggleMute}
+              onClick={handleToggleMute}
               className={`p-4 rounded-2xl transition-all flex items-center justify-center group ${isMuted ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30' : 'bg-white/5 hover:bg-white/15 text-white'}`}
             >
               {isMuted ? <MicOff className="w-6 h-6 group-hover:scale-110 transition-transform" /> : <Mic className="w-6 h-6 group-hover:scale-110 transition-transform" />}
             </button>
             
             <button 
-              onClick={toggleVideo}
+              onClick={handleToggleVideo}
               disabled={isScreenSharing}
               className={`p-4 rounded-2xl transition-all flex items-center justify-center group ${isVideoOff || isScreenSharing ? 'bg-red-500/20 text-red-500 hover:bg-red-500/30 opacity-50' : 'bg-white/5 hover:bg-white/15 text-white'}`}
             >
@@ -392,7 +356,7 @@ export default function MeetingRoom() {
             </button>
             
             <button 
-              onClick={toggleScreenShare}
+              onClick={handleToggleScreenShare}
               className={`p-4 rounded-2xl transition-all flex items-center justify-center group hidden md:block ${isScreenSharing ? 'bg-blue-600 text-white shadow-[0_0_20px_rgba(37,99,235,0.4)]' : 'bg-white/5 hover:bg-white/15 text-white'}`}
             >
               {isScreenSharing ? <MonitorX className="w-6 h-6 group-hover:scale-110 transition-transform" /> : <MonitorUp className="w-6 h-6 group-hover:scale-110 transition-transform" />}
@@ -408,14 +372,14 @@ export default function MeetingRoom() {
             </button>
             
             <button 
-              onClick={() => setAiEnabled(!aiEnabled)}
+              onClick={toggleAi}
               className={`p-4 rounded-2xl transition-all flex items-center justify-center group ${aiEnabled ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-[0_0_20px_rgba(147,51,234,0.4)]' : 'bg-white/5 hover:bg-white/15 text-white'}`}
             >
               <Sparkles className="w-6 h-6 group-hover:scale-110 transition-transform" />
             </button>
             
             <button 
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              onClick={toggleSidebar}
               className={`p-4 rounded-2xl transition-all flex items-center justify-center group ${isSidebarOpen ? 'bg-white/20 text-white' : 'bg-white/5 hover:bg-white/15 text-white'}`}
             >
               <MessageSquare className="w-6 h-6 group-hover:scale-110 transition-transform" />
@@ -433,7 +397,7 @@ export default function MeetingRoom() {
         </div>
       </div>
 
-      {/* Right Sidebar (Chat & Participants) */}
+      {/* Right Sidebar */}
       <AnimatePresence>
         {isSidebarOpen && (
           <motion.div 
@@ -443,7 +407,6 @@ export default function MeetingRoom() {
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className="fixed right-0 top-0 w-80 h-full bg-slate-900/95 backdrop-blur-3xl border-l border-white/10 flex flex-col z-40 shadow-[-20px_0_40px_rgba(0,0,0,0.5)]"
           >
-            {/* Sidebar Header */}
             <div className="flex p-3 border-b border-white/10">
               <button 
                 onClick={() => setSidebarTab('chat')}
@@ -461,7 +424,6 @@ export default function MeetingRoom() {
               </button>
             </div>
 
-            {/* Sidebar Content */}
             <div className="flex-1 overflow-y-auto p-4 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
               {sidebarTab === 'chat' ? (
                 <div className="space-y-5">
@@ -501,10 +463,9 @@ export default function MeetingRoom() {
               )}
             </div>
 
-            {/* Chat Input */}
             {sidebarTab === 'chat' && (
               <div className="p-4 border-t border-white/10 bg-slate-900/50 backdrop-blur-md">
-                <form onSubmit={sendMessage} className="relative">
+                <form onSubmit={handleSendMessage} className="relative">
                   <input 
                     type="text" 
                     value={chatInput}

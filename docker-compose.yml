@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:latest
+    container_name: intellmeet-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - intellmeet-network
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:alpine
+    container_name: intellmeet-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - intellmeet-network
+    restart: unless-stopped
+
+  # Node.js Backend API
+  backend:
+    build: 
+      context: ./intellmeet-backend
+      dockerfile: Dockerfile
+    container_name: intellmeet-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - MONGO_URI=mongodb://mongodb:27017/intellmeet
+      - JWT_SECRET=your_super_secret_jwt_key
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - GROQ_API_KEY=your_groq_api_key_here
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - intellmeet-network
+    restart: unless-stopped
+
+  # React Frontend (Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: intellmeet-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_SERVER_URL=http://localhost:5000
+    depends_on:
+      - backend
+    networks:
+      - intellmeet-network
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+
+networks:
+  intellmeet-network:
+    driver: bridge
