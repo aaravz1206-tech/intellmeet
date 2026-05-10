@@ -1,0 +1,25 @@
+{
+  "overview": "IntellMeet is an enterprise-grade video conferencing platform with a Matrix/Hacker dark aesthetic. It features WebRTC peer-to-peer video, collaborative whiteboard, screen recording with cloud upload, and full meeting history — all secured with Internet Identity authentication.",
+  "features": [
+    "Internet Identity authentication with protected routes",
+    "WebRTC peer-to-peer video and audio grid",
+    "Live participant state: mute, camera, screen share, leave",
+    "Real-time collaborative HTML5 Canvas whiteboard with polling sync",
+    "Screen recording with MediaRecorder API and cloud upload",
+    "Screen sharing via browser display capture",
+    "Meeting history with date, duration, and participant count",
+    "Recording detail page with video playback and download",
+    "Matrix/Hacker dark aesthetic: emerald green and amber accents on deep charcoal"
+  ],
+  "category": "productivity",
+  "tags": [
+    "video-conferencing",
+    "webrtc",
+    "collaboration",
+    "whiteboard",
+    "screen-recording",
+    "real-time",
+    "enterprise"
+  ],
+  "last_updated": "2026-05-10T16:13:48.249Z"
+}

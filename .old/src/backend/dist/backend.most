@@ -1,0 +1,115 @@
+// Version: 1.0.0
+type Data__791452850<K, V> =
+  {var count : Nat__490723111; kvs : [var ?(K, V)]};
+type DurationSeconds__463058441 = Nat;
+type Internal__8484328<K, V> =
+  {children : [var ?Node__46230540<K, V>]; data : Data__791452850<K, V>};
+type Leaf__809889148<K, V> = {data : Data__791452850<K, V>};
+type List__415060402<T> = List__790383201<T>;
+type List__790383201<T> =
+  {
+    var blockIndex : Nat__490723111;
+    var blocks : [var [var ?T]];
+    var elementIndex : Nat__490723111
+  };
+type Nat__490723111 = Nat__920180692;
+type Nat__920180692 = Nat;
+type Node__46230540<K, V> =
+  {#internal : Internal__8484328<K, V>; #leaf : Leaf__809889148<K, V>};
+type ParticipantState__763627907 =
+  {
+    var cameraOn : Bool;
+    displayName : Text;
+    var isActive : Bool;
+    var isMuted : Bool;
+    joinedAt : Timestamp__301639476;
+    var leftAt : ?Timestamp__301639476;
+    roomCode : RoomCode__684757313;
+    var screenSharing : Bool;
+    userId : Principal
+  };
+type Recording__309790270 =
+  {
+    createdAt : Timestamp__301639476;
+    durationSeconds : DurationSeconds__463058441;
+    fileUrl : Url__416326484;
+    id : Nat;
+    participantsCount : Nat;
+    roomCode : RoomCode__684757313;
+    uploadedBy : Principal
+  };
+type RoomCode__684757313 = Text;
+type RoomStatus__458843262 = {#active; #closed};
+type Room__355553194 =
+  {
+    var closedAt : ?Timestamp__301639476;
+    code : RoomCode__684757313;
+    createdAt : Timestamp__301639476;
+    createdBy : Principal;
+    var participantCount : Nat;
+    var status : RoomStatus__458843262;
+    title : Text
+  };
+type SignalType__466096659 = {#answer; #ice; #offer};
+type Signal__114171322 =
+  {
+    var consumed : Bool;
+    createdAt : Timestamp__301639476;
+    fromUser : Principal;
+    id : Nat;
+    payload : Text;
+    roomCode : RoomCode__684757313;
+    signalType : SignalType__466096659;
+    toUser : Principal
+  };
+type Stroke__580850599 =
+  {
+    color : Text;
+    createdAt : Timestamp__301639476;
+    id : Nat;
+    path : Text;
+    roomCode : RoomCode__684757313;
+    userId : Principal;
+    width : Nat
+  };
+type Timestamp__301639476 = Int;
+type Url__416326484 = Text;
+actor {
+  stable participants :
+    {
+      var root :
+        Node__46230540<RoomCode__684757313,
+                        List__415060402<ParticipantState__763627907>>;
+      var size : Nat__490723111
+    };
+  stable recordings :
+    {
+      var blockIndex : Nat__490723111;
+      var blocks : [var [var ?Recording__309790270]];
+      var elementIndex : Nat__490723111
+    };
+  stable rooms :
+    {
+      var root : Node__46230540<RoomCode__684757313, Room__355553194>;
+      var size : Nat__490723111
+    };
+  stable signals :
+    {
+      var root : Node__46230540<Nat, Signal__114171322>;
+      var size : Nat__490723111
+    };
+  stable state :
+    {
+      var recordingCounter : Nat;
+      var roomCounter : Nat;
+      var signalCounter : Nat;
+      var strokeCounter : Nat
+    };
+  stable strokes :
+    {
+      var root :
+        Node__46230540<RoomCode__684757313,
+                        List__415060402<Stroke__580850599>>;
+      var size : Nat__490723111
+    }
+};

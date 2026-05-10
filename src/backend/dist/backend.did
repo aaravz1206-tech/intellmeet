@@ -1,0 +1,104 @@
+type Url = text;
+type Timestamp = int;
+type StrokeInfo = 
+ record {
+   color: text;
+   createdAt: Timestamp;
+   id: nat;
+   path: text;
+   roomCode: RoomCode;
+   userId: text;
+   width: nat;
+ };
+type SignalType = 
+ variant {
+   answer;
+   ice;
+   offer;
+ };
+type SignalInfo = 
+ record {
+   consumed: bool;
+   createdAt: Timestamp;
+   fromUser: text;
+   id: nat;
+   payload: text;
+   roomCode: RoomCode;
+   signalType: SignalType;
+   toUser: text;
+ };
+type RoomStatus = 
+ variant {
+   active;
+   closed;
+ };
+type RoomInfo = 
+ record {
+   closedAt: opt Timestamp;
+   code: RoomCode;
+   createdAt: Timestamp;
+   createdBy: text;
+   participantCount: nat;
+   status: RoomStatus;
+   title: text;
+ };
+type RoomCode = text;
+type RecordingInfo = 
+ record {
+   createdAt: Timestamp;
+   durationSeconds: DurationSeconds;
+   fileUrl: Url;
+   id: nat;
+   participantsCount: nat;
+   roomCode: RoomCode;
+   uploadedBy: text;
+ };
+type ParticipantInfo = 
+ record {
+   cameraOn: bool;
+   displayName: text;
+   isActive: bool;
+   isMuted: bool;
+   joinedAt: Timestamp;
+   leftAt: opt Timestamp;
+   roomCode: RoomCode;
+   screenSharing: bool;
+   userId: text;
+ };
+type MeetingHistoryEntry = 
+ record {
+   date: Timestamp;
+   durationSeconds: opt DurationSeconds;
+   participantCount: nat;
+   role: variant {
+           host;
+           participant;
+         };
+   roomCode: RoomCode;
+   title: text;
+ };
+type DurationSeconds = nat;
+service : {
+  addStroke: (roomCode: RoomCode, color: text, width: nat, path: text) ->
+   (nat);
+  clearWhiteboard: (roomCode: RoomCode) -> ();
+  closeRoom: (code: RoomCode) -> (bool);
+  consumeSignals: (ids: vec nat) -> (nat);
+  createRoom: (title: text) -> (RoomCode);
+  getPendingSignals: (roomCode: RoomCode) -> (vec SignalInfo);
+  getRecordingById: (id: nat) -> (opt RecordingInfo) query;
+  getRoomInfo: (code: RoomCode) -> (opt RoomInfo) query;
+  getStrokes: (roomCode: RoomCode) -> (vec StrokeInfo) query;
+  joinRoom: (roomCode: RoomCode, displayName: text) -> (bool);
+  leaveRoom: (roomCode: RoomCode) -> (bool);
+  listMeetingHistory: () -> (vec MeetingHistoryEntry);
+  listMyRecordings: () -> (vec RecordingInfo);
+  listParticipants: (roomCode: RoomCode) -> (vec ParticipantInfo) query;
+  saveRecording: (roomCode: RoomCode, durationSeconds: DurationSeconds,
+   fileUrl: Url, participantsCount: nat) -> (nat);
+  sendAnswer: (toUser: principal, roomCode: RoomCode, payload: text) -> (nat);
+  sendIce: (toUser: principal, roomCode: RoomCode, payload: text) -> (nat);
+  sendOffer: (toUser: principal, roomCode: RoomCode, payload: text) -> (nat);
+  updateMyState: (roomCode: RoomCode, isMuted: opt bool, cameraOn: opt bool,
+   screenSharing: opt bool) -> (bool);
+}
